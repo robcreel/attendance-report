@@ -1,6 +1,8 @@
 # Local sensitive files
 *.pdf
 *.html
+Attendance_Report_R_files/
+Attendance_Report_R.md
 
 # History files
 .Rhistory
