@@ -1,6 +1,7 @@
 # Local sensitive files
 *.pdf
 *.html
+*.tex
 Attendance_Report_R_files/
 Attendance_Report_R.md
 

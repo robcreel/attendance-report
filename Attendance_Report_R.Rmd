@@ -1,7 +1,8 @@
 ---
 title: "Attendance Report"
 output:
-  pdf_document: default
+  pdf_document: 
+    keep_tex: yes
   keep_md: yes
 ---
 
@@ -15,6 +16,9 @@ library(dplyr)
 library(ggplot2)
 library(here)
 library(kableExtra)
+library(tidyr)
+library(stringr)
+
 
 # Set flag for identifying rows with desired data.
 a0 <- "A00000"
@@ -53,7 +57,7 @@ for (i in 1:length(att)) {
   }
 }
 
-
+df$Student <- str_to_title(df$Student)
 df$Date <- mdy(df$Date)
 class_days_n <- length(unique(df$Date))
 ```
@@ -70,13 +74,15 @@ df %>% group_by(Date) %>%
   filter(Presence == "Present" | Presence == "Late" | Presence == "Left Early") %>% 
   count(name = "in_class") -> date_p_df
 date_df %>% add_column(in_class = date_p_df$in_class) -> date_df
-date_df %>% mutate(percent = in_class / total * 100) -> date_df
+date_df %>% mutate(percent = round(in_class / total * 100)) -> date_df
 
-ggplot(date_df, aes(factor(Date), percent, group = 1)) +
-  geom_line() +
-  theme(axis.text.x = element_text(angle = 60, vjust = 0.5)) +
-  xlab("Date") +
-  ylim(0, 100)
+kable(date_df %>% select(Date, in_class, total, percent))
+
+# ggplot(date_df, aes(factor(Date), percent, group = 1)) +
+#   geom_line() +
+#   theme(axis.text.x = element_text(angle = 60, vjust = 0.5)) +
+#   xlab("Date") +
+#   ylim(0, 100)
 ```
 
 
@@ -87,20 +93,30 @@ cur_enr_df <- df %>% filter(Student %in% cur_enr_students)
 cur_enr_df %>% 
   group_by(Student) %>% 
   filter(Presence == "Present" | Presence == "Late" | Presence == "Left Early") %>% 
-  count(name = "in_class", .drop = FALSE) -> att_table
+  count(name = "in_class", .drop = FALSE) -> inc_table
 # .drop = FALSE not working as expected.  Students with perfect attendance
 # not being accounted for with 0 absences.
-  # cur_enr_df %>% 
-  #   group_by(Student) %>% 
-  #   filter(Presence == "Absent") %>% 
-  #   count(name = "absent", .drop = FALSE) -> abs_table
+cur_enr_df %>%
+  group_by(Student) %>%
+  filter(Presence == "Absent") %>%
+  count(name = "absent", .drop = FALSE) -> abs_table
 
-att_table %>% mutate(absent = class_days_n - in_class) %>% arrange(desc(in_class)) -> att_table
+att_table <-  merge(inc_table, abs_table, by = "Student", all = TRUE) %>% replace_na(replace = list(in_class = 0, absent = 0))
 
-# att_table %>% filter(in_class == max(in_class))
 perfect <- att_table %>% filter(in_class == max(att_table$in_class))
-poor <- att_table %>% filter(in_class %in% min(att_table$in_class):(min(att_table$in_class) + 2))
+# poor <- att_table %>% filter(in_class %in% min(att_table$in_class):(min(att_table$in_class) + 2))
+no_show <- att_table %>% filter(in_class == 0)
 ```
+
+## Course attendance by student.
+
+### Students with perfect attendance:
+
+`r paste(perfect$Student, collapse = "; ")`
+
+### No shows:
+
+`r paste(no_show$Student, collapse = ";  ")`
 
 \pagebreak
 
@@ -109,21 +125,13 @@ poor <- att_table %>% filter(in_class %in% min(att_table$in_class):(min(att_tabl
 ## Course attendance by student.
 
 
-
-
-### Students with perfect attendance:
-
-`r paste(perfect$Student, collapse = "; ")`
-
-### Students with poor attendance:
-
-`r paste(poor$Student, collapse = ";  ")`
-
 ```{r table, echo=FALSE}
-kable(list(
-  att_table[1:ceiling(nrow(att_table)/2),],
-  att_table[(ceiling(nrow(att_table)/2) + 1):nrow(att_table),]
-  ),
-  booktabs = TRUE, valign = 't', align = NULL
-  )
+# halfway <- ceiling(nrow(att_table)/2)
+# kable(list(
+#   att_table[1:halfway,],
+#   att_table[(halfway + 1):nrow(att_table),]
+#   ),
+#   booktabs = TRUE, valign = 't'#, align = NULL
+#   ) # %>% kable_styling(latex_options = "hold_position")
+kable(att_table, booktabs = TRUE, valign = 't', align = NULL)
 ```
