@@ -4,6 +4,8 @@ output:
   pdf_document: 
     keep_tex: yes
   keep_md: yes
+params:
+  d: !r Sys.Date()
 ---
 
 ```{r setup, include=FALSE}
@@ -23,6 +25,10 @@ library(stringr)
 # Set flag for identifying rows with desired data.
 a0 <- "A00000"
 
+# Set flag for holiday because CAMS is too stupid to exclude holidays from reports.
+# MLK Day
+holiday <- "2020-01-20"
+
 # Initialize empty data frame.
 df <- data.frame(Student=character(), 
                  Presence=character(), 
@@ -30,7 +36,7 @@ df <- data.frame(Student=character(),
                  stringsAsFactors=FALSE) 
 
 # Get raw attendance text, a list of lists.
-att <- pdf_text(here("fromCAMS.pdf")) %>% strsplit(split = "\n")
+att <- pdf_text(here("Attendance Report.pdf")) %>% strsplit(split = "\n")
 
 # Set header.
 header <- att[[1]][2]
@@ -59,10 +65,16 @@ for (i in 1:length(att)) {
 
 df$Student <- str_to_title(df$Student)
 df$Date <- mdy(df$Date)
+# Exclude holidays.
+df %>% filter(Date != holiday) -> df
+
 class_days_n <- length(unique(df$Date))
 ```
 
 ## `r header`
+
+#### This document was created on `r params$d`.
+
 Class has met `r class_days_n` times so far. 
 
 ## Course attendance by date.
@@ -78,11 +90,11 @@ date_df %>% mutate(percent = round(in_class / total * 100)) -> date_df
 
 kable(date_df %>% select(Date, in_class, total, percent))
 
-# ggplot(date_df, aes(factor(Date), percent, group = 1)) +
-#   geom_line() +
-#   theme(axis.text.x = element_text(angle = 60, vjust = 0.5)) +
-#   xlab("Date") +
-#   ylim(0, 100)
+ggplot(date_df, aes(factor(Date), percent, group = 1)) +
+  geom_line() +
+  theme(axis.text.x = element_text(angle = 60, vjust = 0.5)) +
+  xlab("Date") +
+  ylim(0, 100)
 ```
 
 
