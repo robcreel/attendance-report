@@ -130,7 +130,7 @@ no_show <- att_table %>% filter(in_class == 0)
 
 `r paste(no_show$Student, collapse = ";  ")`
 
-\pagebreak
+<!-- \pagebreak -->
 
 ## `r header`
 
