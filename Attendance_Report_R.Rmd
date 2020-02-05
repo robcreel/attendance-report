@@ -118,6 +118,10 @@ att_table <-  merge(inc_table, abs_table, by = "Student", all = TRUE) %>% replac
 perfect <- att_table %>% filter(in_class == max(att_table$in_class))
 # poor <- att_table %>% filter(in_class %in% min(att_table$in_class):(min(att_table$in_class) + 2))
 no_show <- att_table %>% filter(in_class == 0)
+
+dates <- cur_enr_df$Date %>% unique()
+last_two_days <- dates[(length(dates) - 1):length(dates)]
+missed_last_two_days <- cur_enr_df %>% filter(Date %in% last_two_days & Presence == "Absent") %>% group_by(Student) %>% count() %>% filter(n == 2) # %>% select(Student)
 ```
 
 ## Course attendance by student.
@@ -129,6 +133,10 @@ no_show <- att_table %>% filter(in_class == 0)
 ### No shows:
 
 `r paste(no_show$Student, collapse = ";  ")`
+
+### Students who missed the last two class days:
+
+`r paste(missed_last_two_days$Student, collapse = ";  ")`
 
 <!-- \pagebreak -->
 
