@@ -20,7 +20,7 @@ library(here)
 library(kableExtra)
 library(tidyr)
 library(stringr)
-
+library(stringi)
 
 # Set flag for identifying rows with desired data.
 a0 <- "A00000"
@@ -49,11 +49,14 @@ for (i in 1:length(att)) {
     linelist <- strsplit(line, "\\s+")[[1]]
     n <- length(linelist)
     if (!is.na(substr(linelist[5], 1, 6))){
-      if (substr(linelist[n - 2], 1, 6) == a0) {
-        if (linelist[6] == "Left") {
-          new_row <- c(paste(linelist[2:3], collapse = " "), 
-                       paste(linelist[(n - 2):(n - 1)], collapse = " "),
-                       linelist[n])
+      if (TRUE %in%  stri_detect_fixed(linelist, a0)) {
+        if (
+          # linelist[6] == "Left"
+          TRUE %in%  stri_detect_fixed(linelist, "Left")
+          ) {
+          new_row <- c(paste(linelist[2:3], collapse = " "),
+               paste(linelist[(n - 2):(n - 1)], collapse = " "),
+               linelist[n])
         } else {
           new_row <- c(paste(linelist[2:3], collapse = " "), linelist[(n - 1):(n)])
         }
