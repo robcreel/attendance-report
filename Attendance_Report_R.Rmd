@@ -124,7 +124,7 @@ no_show <- att_table %>% filter(in_class == 0)
 
 dates <- cur_enr_df$Date %>% unique()
 last_two_days <- dates[(length(dates) - 1):length(dates)]
-missed_last_two_days <- cur_enr_df %>% filter(Date %in% last_two_days & Presence == "Absent") %>% group_by(Student) %>% count() %>% filter(n == 2) # %>% select(Student)
+missed_last_two_days <- cur_enr_df %>% filter(Date %in% last_two_days & Presence == "Absent" & !(Student %in% no_show$Student)) %>% group_by(Student) %>% count() %>% filter(n == 2) # %>% select(Student)
 ```
 
 ## Course attendance by student.
