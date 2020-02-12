@@ -36,41 +36,48 @@ df <- data.frame(Student=character(),
                  stringsAsFactors=FALSE) 
 
 # Get raw attendance text, a list of lists.
-att <- pdf_text(here("Attendance Report.pdf")) %>% strsplit(split = "\n")
+pdf_text(here("Attendance Report.pdf")) %>% strsplit(split = "\n") -> raw_data
 
-# Set header.
-header <- att[[1]][2]
+# Get header.
+header <- raw_data[[1]][2]
 
 # Iterate over each page, over each line.
-for (i in 1:length(att)) {
-  page <- att[[i]]
+for (i in 1:length(raw_data)) {
+  page <- raw_data[[i]]
   for (j in 1:length(page)) {
     line <- page[[j]]
+    # Strip each line into a list, and store its length.
     linelist <- strsplit(line, "\\s+")[[1]]
     n <- length(linelist)
-    if (!is.na(substr(linelist[5], 1, 6))){
-      if (TRUE %in%  stri_detect_fixed(linelist, a0)) {
-        if (
-          # linelist[6] == "Left"
-          TRUE %in%  stri_detect_fixed(linelist, "Left")
-          ) {
-          new_row <- c(paste(linelist[2:3], collapse = " "),
-               paste(linelist[(n - 2):(n - 1)], collapse = " "),
-               linelist[n])
-        } else {
-          new_row <- c(paste(linelist[2:3], collapse = " "), linelist[(n - 1):(n)])
-        }
-        df[nrow(df)+1,] <- new_row
+    
+    # Check if line contains student data by
+    # checking whether that flagged string is in
+    # any word in the list.
+    if (TRUE %in%  stri_detect_fixed(linelist, a0)) {
+      # Check if student Left Early, since "Left Early"
+      # is two words.
+      if (TRUE %in%  stri_detect_fixed(linelist, "Left")) {
+        # Save to new_row the student's name, presence status, and date.
+        new_row <- c(paste(linelist[2:3], collapse = " "), # name (Student)
+             paste(linelist[(n - 2):(n - 1)], collapse = " "), # Presence
+             linelist[n]) # Date
+      } else {
+        # again, save name, presence and date to new_row.
+        new_row <- c(paste(linelist[2:3], collapse = " "), linelist[(n - 1):(n)])
       }
+      # Add new_row to dataframe.
+      df[nrow(df)+1,] <- new_row
     }
   }
 }
 
+# Correct Student name capitalization.
 df$Student <- str_to_title(df$Student)
+# Set the date string as a Date object.
 df$Date <- mdy(df$Date)
 # Exclude holidays.
 df %>% filter(Date != holiday) -> df
-
+# Get number of class days.
 class_days_n <- length(unique(df$Date))
 ```
 
@@ -83,17 +90,19 @@ Class has met `r class_days_n` times so far.
 ## Course attendance by date.
 
 ```{r by_date, echo=FALSE, fig.height=3}
+# Get attendance info by date.
+
+
 df %>% group_by(Date) %>% 
-  count(name = "total") -> date_df
+  count(name = "Total") -> date_df
 df %>% group_by(Date) %>% 
   filter(Presence == "Present" | Presence == "Late" | Presence == "Left Early") %>% 
-  count(name = "in_class") -> date_p_df
-date_df %>% add_column(in_class = date_p_df$in_class) -> date_df
-date_df %>% mutate(percent = round(in_class / total * 100)) -> date_df
+  count(name = "In_Class") -> date_p_df
+date_df %>% add_column(In_Class = date_p_df$In_Class) -> date_df
+date_df %>% mutate(Percent = round(In_Class / Total * 100)) -> date_df
 
-kable(date_df %>% select(Date, in_class, total, percent))
 
-ggplot(date_df, aes(factor(Date), percent, group = 1)) +
+ggplot(date_df, aes(factor(Date), Percent, group = 1)) +
   geom_line() +
   theme(axis.text.x = element_text(angle = 60, vjust = 0.5)) +
   xlab("Date") +
@@ -108,19 +117,19 @@ cur_enr_df <- df %>% filter(Student %in% cur_enr_students)
 cur_enr_df %>% 
   group_by(Student) %>% 
   filter(Presence == "Present" | Presence == "Late" | Presence == "Left Early") %>% 
-  count(name = "in_class", .drop = FALSE) -> inc_table
+  count(name = "In_Class", .drop = FALSE) -> inc_table
 # .drop = FALSE not working as expected.  Students with perfect attendance
 # not being accounted for with 0 absences.
 cur_enr_df %>%
   group_by(Student) %>%
   filter(Presence == "Absent") %>%
-  count(name = "absent", .drop = FALSE) -> abs_table
+  count(name = "Absent", .drop = FALSE) -> abs_table
 
-att_table <-  merge(inc_table, abs_table, by = "Student", all = TRUE) %>% replace_na(replace = list(in_class = 0, absent = 0))
+att_table <-  merge(inc_table, abs_table, by = "Student", all = TRUE) %>% replace_na(replace = list(In_Class = 0, Absent = 0))
 
-perfect <- att_table %>% filter(in_class == max(att_table$in_class))
-# poor <- att_table %>% filter(in_class %in% min(att_table$in_class):(min(att_table$in_class) + 2))
-no_show <- att_table %>% filter(in_class == 0)
+perfect <- att_table %>% filter(In_Class == max(att_table$In_Class))
+# poor <- att_table %>% filter(In_Class %in% min(att_table$In_Class):(min(att_table$In_Class) + 2))
+no_show <- att_table %>% filter(In_Class == 0)
 
 dates <- cur_enr_df$Date %>% unique()
 last_two_days <- dates[(length(dates) - 1):length(dates)]
