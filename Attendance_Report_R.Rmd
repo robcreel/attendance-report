@@ -41,6 +41,30 @@ pdf_text(here("Attendance Report.pdf")) %>% strsplit(split = "\n") -> raw_data
 # Get header.
 header <- raw_data[[1]][2]
 
+# Function to extract name from a linelist of strings
+get_name <- function(a_line_list){
+  student_name <- paste(a_line_list[3:2], collapse = " ")
+  return(student_name)
+}
+
+# Function to extract presence status from a linelist of strings
+get_presence <- function(a_line_list){
+  if (TRUE %in%  stri_detect_fixed(linelist, "Left")) {
+    student_presence <- "Left Early"
+  } else if (TRUE %in%  stri_detect_fixed(linelist, "Present")) {
+    student_presence <- "Present"
+  } else if (TRUE %in%  stri_detect_fixed(linelist, "Absent")) {
+    student_presence <- "Absent"
+  } else if (TRUE %in%  stri_detect_fixed(linelist, "Late")) {
+    student_presence <- "Late"
+  }
+}
+
+# Function to extract the date from a linelist of strings
+get_date <- function(a_line_list){
+  a_line_list[length(a_line_list)]
+}
+
 # Iterate over each page, over each line.
 for (i in 1:length(raw_data)) {
   page <- raw_data[[i]]
@@ -54,17 +78,10 @@ for (i in 1:length(raw_data)) {
     # checking whether that flagged string is in
     # any word in the list.
     if (TRUE %in%  stri_detect_fixed(linelist, a0)) {
-      # Check if student Left Early, since "Left Early"
-      # is two words.
-      if (TRUE %in%  stri_detect_fixed(linelist, "Left")) {
-        # Save to new_row the student's name, presence status, and date.
-        new_row <- c(paste(linelist[2:3], collapse = " "), # name (Student)
-             paste(linelist[(n - 2):(n - 1)], collapse = " "), # Presence
-             linelist[n]) # Date
-      } else {
-        # again, save name, presence and date to new_row.
-        new_row <- c(paste(linelist[2:3], collapse = " "), linelist[(n - 1):(n)])
-      }
+      # Get name, presence, and date and save them to new_row
+      new_row <- c(get_name(linelist), 
+                   get_presence(linelist), 
+                   get_date(linelist))
       # Add new_row to dataframe.
       df[nrow(df)+1,] <- new_row
     }
@@ -92,16 +109,28 @@ Class has met `r class_days_n` times so far.
 ```{r by_date, echo=FALSE, fig.height=3}
 # Get attendance info by date.
 
-
+# Group data by date and get total number of enrolled students each day.
 df %>% group_by(Date) %>% 
   count(name = "Total") -> date_df
+
+# Group data by date and count all who were in class any time that day.
 df %>% group_by(Date) %>% 
-  filter(Presence == "Present" | Presence == "Late" | Presence == "Left Early") %>% 
+  filter(
+    Presence == "Present" | 
+    Presence == "Late" | 
+    Presence == "Left Early"
+    ) %>% 
   count(name = "In_Class") -> date_p_df
-date_df %>% add_column(In_Class = date_p_df$In_Class) -> date_df
-date_df %>% mutate(Percent = round(In_Class / Total * 100)) -> date_df
 
+# Aggregate counts for In_Class, Total (Enrolled), and Percent.
+date_df %>% add_column(In_Class = date_p_df$In_Class)  %>% 
+  mutate(Percent = round(In_Class / Total * 100)) %>% 
+  select(Date, In_Class, Total, Percent) -> date_df
 
+# Print by date data.
+kable(date_df)
+
+# Plot by date data.
 ggplot(date_df, aes(factor(Date), Percent, group = 1)) +
   geom_line() +
   theme(axis.text.x = element_text(angle = 60, vjust = 0.5)) +
@@ -111,29 +140,39 @@ ggplot(date_df, aes(factor(Date), Percent, group = 1)) +
 
 
 ```{r by_student, echo=FALSE}
-df %>% filter(Date == max(Date)) -> most_recent_day_df
-cur_enr_students <- most_recent_day_df$Student
-cur_enr_df <- df %>% filter(Student %in% cur_enr_students)
+# Get currently enrolled students only.
+df %>% filter(Date == max(Date)) %>% 
+  pull(Student) -> cur_enr_students
+
+# Restrict data frame to include only currently enrolled students
+df %>% filter(Student %in% cur_enr_students) -> cur_enr_df
+
+# Get table of students' days in class.
 cur_enr_df %>% 
   group_by(Student) %>% 
   filter(Presence == "Present" | Presence == "Late" | Presence == "Left Early") %>% 
   count(name = "In_Class", .drop = FALSE) -> inc_table
-# .drop = FALSE not working as expected.  Students with perfect attendance
-# not being accounted for with 0 absences.
+
+# Get table of students' days absent.
 cur_enr_df %>%
   group_by(Student) %>%
   filter(Presence == "Absent") %>%
   count(name = "Absent", .drop = FALSE) -> abs_table
 
-att_table <-  merge(inc_table, abs_table, by = "Student", all = TRUE) %>% replace_na(replace = list(In_Class = 0, Absent = 0))
+# Merge the tables.
+merge(inc_table, abs_table, by = "Student", all = TRUE) %>% 
+  replace_na(replace = list(In_Class = 0, Absent = 0)) -> att_table
 
-perfect <- att_table %>% filter(In_Class == max(att_table$In_Class))
-# poor <- att_table %>% filter(In_Class %in% min(att_table$In_Class):(min(att_table$In_Class) + 2))
-no_show <- att_table %>% filter(In_Class == 0)
+# Get students with perfect attendance.
+att_table %>% filter(In_Class == max(att_table$In_Class)) -> perfect
 
-dates <- cur_enr_df$Date %>% unique()
-last_two_days <- dates[(length(dates) - 1):length(dates)]
-missed_last_two_days <- cur_enr_df %>% filter(Date %in% last_two_days & Presence == "Absent" & !(Student %in% no_show$Student)) %>% group_by(Student) %>% count() %>% filter(n == 2) # %>% select(Student)
+# Get no shows.
+att_table %>% filter(In_Class == 0) -> no_show
+
+# Get students who missed the last two days (who aren't also no shows).
+cur_enr_df$Date %>% unique() -> dates
+dates[(length(dates) - 1):length(dates)] -> last_two_days
+cur_enr_df %>% filter(Date %in% last_two_days & Presence == "Absent" & !(Student %in% no_show$Student)) %>% group_by(Student) %>% count() %>% filter(n == 2) -> missed_last_two_days
 ```
 
 ## Course attendance by student.
