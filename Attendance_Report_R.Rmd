@@ -44,35 +44,62 @@ header <- raw_data[[1]][2]
 # Function to extract name from a linelist of strings
 get_name <- function(a_line_list){
   student_name <- paste(a_line_list[3:2], collapse = " ")
+  student_name <- str_remove(student_name, ",") # Strip out the comma
   return(student_name)
 }
 
 # Function to extract presence status from a linelist of strings
 get_presence <- function(a_line_list){
-  if (TRUE %in%  stri_detect_fixed(linelist, "Left")) {
-    student_presence <- "Left Early"
-  } else if (TRUE %in%  stri_detect_fixed(linelist, "Present")) {
-    student_presence <- "Present"
-  } else if (TRUE %in%  stri_detect_fixed(linelist, "Absent")) {
-    student_presence <- "Absent"
-  } else if (TRUE %in%  stri_detect_fixed(linelist, "Late")) {
-    student_presence <- "Late"
-  }
+  suppressWarnings({
+    if (TRUE %in%  stri_detect_fixed(a_line_list, "Left")) {
+      return("Left Early")
+    } else if (TRUE %in%  stri_detect_fixed(a_line_list, "Present")) {
+      return("Present")
+    } else if (TRUE %in%  stri_detect_fixed(a_line_list, "Absent")) {
+      return("Absent")
+    } else if (TRUE %in%  stri_detect_fixed(a_line_list, "Late")) {
+      return("Late")
+    }
+  })
+  # return(student_presence)
 }
 
 # Function to extract the date from a linelist of strings
+
 get_date <- function(a_line_list){
-  a_line_list[length(a_line_list)]
+  suppressWarnings({
+    for (it in 1:length(a_line_list)){
+      if (!is.na(mdy(a_line_list[it]))){
+        return(a_line_list[it])
+      } else {
+        result <- NA
+      }
+    }
+  })
+  return(result)
 }
+
+
 
 # Iterate over each page, over each line.
 for (i in 1:length(raw_data)) {
   page <- raw_data[[i]]
   for (j in 1:length(page)) {
-    line <- page[[j]]
+    # line <- page[[j]]
+    line <- page[j]
     # Strip each line into a list, and store its length.
     linelist <- strsplit(line, "\\s+")[[1]]
     n <- length(linelist)
+    
+    # If the name field is so long that it forces a newline, 
+    # then three rows of text should be combined into one.
+    # if (n < 6){
+    #   page[j:(j + 2)] %>%
+    #     paste(collapse = "") %>% 
+    #     strsplit(split = "\\s+") -> linelist
+    #   linelist <- linelist[[1]]
+    # 
+    # }
     
     # Check if line contains student data by
     # checking whether that flagged string is in
@@ -179,15 +206,15 @@ cur_enr_df %>% filter(Date %in% last_two_days & Presence == "Absent" & !(Student
 
 ### Students with perfect attendance:
 
-`r paste(perfect$Student, collapse = "; ")`
+`r paste(perfect$Student, collapse = ", ")`
 
 ### No shows:
 
-`r paste(no_show$Student, collapse = ";  ")`
+`r paste(no_show$Student, collapse = ",  ")`
 
 ### Students who missed the last two class days:
 
-`r paste(missed_last_two_days$Student, collapse = ";  ")`
+`r paste(missed_last_two_days$Student, collapse = ",  ")`
 
 <!-- \pagebreak -->
 
