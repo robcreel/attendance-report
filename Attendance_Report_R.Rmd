@@ -1,7 +1,7 @@
 ---
 title: "Attendance Report"
 output:
-  pdf_document: 
+  html_document: 
     keep_tex: yes
   keep_md: yes
 params:
@@ -119,6 +119,7 @@ for (i in 1:length(raw_data)) {
 df$Student <- str_to_title(df$Student)
 # Set the date string as a Date object.
 df$Date <- mdy(df$Date)
+df$Date <- format(df$Date, format="%m-%d")
 # Exclude holidays.
 df %>% filter(Date != holiday) -> df
 # Get number of class days.
@@ -155,7 +156,7 @@ date_df %>% add_column(In_Class = date_p_df$In_Class)  %>%
   select(Date, In_Class, Total, Percent) -> date_df
 
 # Print by date data.
-kable(date_df)
+kable(date_df) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 
 # Plot by date data.
 ggplot(date_df, aes(factor(Date), Percent, group = 1)) +
@@ -166,7 +167,7 @@ ggplot(date_df, aes(factor(Date), Percent, group = 1)) +
 ```
 
 
-```{r by_student, echo=FALSE}
+```{r by_student, echo=FALSE, results='hide'}
 # Get currently enrolled students only.
 df %>% filter(Date == max(Date)) %>% 
   pull(Student) -> cur_enr_students
@@ -186,9 +187,10 @@ cur_enr_df %>%
   filter(Presence == "Absent") %>%
   count(name = "Absent", .drop = FALSE) -> abs_table
 
-# Merge the tables.
+# Merge the tables and create percentae column
 merge(inc_table, abs_table, by = "Student", all = TRUE) %>% 
-  replace_na(replace = list(In_Class = 0, Absent = 0)) -> att_table
+  replace_na(replace = list(In_Class = 0, Absent = 0))  %>% 
+  mutate(Percent = round(In_Class / (In_Class + Absent) * 100)) -> att_table
 
 # Get students with perfect attendance.
 att_table %>% filter(In_Class == max(att_table$In_Class)) -> perfect
@@ -200,6 +202,9 @@ att_table %>% filter(In_Class == 0) -> no_show
 cur_enr_df$Date %>% unique() -> dates
 dates[(length(dates) - 1):length(dates)] -> last_two_days
 cur_enr_df %>% filter(Date %in% last_two_days & Presence == "Absent" & !(Student %in% no_show$Student)) %>% group_by(Student) %>% count() %>% filter(n == 2) -> missed_last_two_days
+
+# Show the table
+kable(att_table) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 ```
 
 ## Course attendance by student.
@@ -218,9 +223,7 @@ cur_enr_df %>% filter(Date %in% last_two_days & Presence == "Absent" & !(Student
 
 <!-- \pagebreak -->
 
-## `r header`
-
-## Course attendance by student.
+## Students with 70% attendance or less:
 
 
 ```{r table, echo=FALSE}
@@ -231,5 +234,20 @@ cur_enr_df %>% filter(Date %in% last_two_days & Presence == "Absent" & !(Student
 #   ),
 #   booktabs = TRUE, valign = 't'#, align = NULL
 #   ) # %>% kable_styling(latex_options = "hold_position")
-kable(att_table, booktabs = TRUE, valign = 't', align = NULL)
+
+bottom_70_percent <- att_table %>% filter(Percent <= 70) %>% arrange(desc(Percent))
+kable(bottom_70_percent, booktabs = TRUE, valign = 't', align = NULL) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+
+## Course attendance by student.
+
+```{r untidy, echo=FALSE}
+abrev_cur_enr_df <- cur_enr_df %>% mutate(Presence = substr(Presence, 1, 2))
+abrev_cur_enr_df %>% 
+    pivot_wider(names_from = Date, values_from  = Presence) -> untidy
+
+kable(untidy) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+  # kable_styling(full_width = F)
+
 ```
