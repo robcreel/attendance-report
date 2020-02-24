@@ -27,7 +27,10 @@ a0 <- "A00000"
 
 # Set flag for holiday because CAMS is too stupid to exclude holidays from reports.
 # MLK Day
-holiday <- "2020-01-20"
+
+# holiday <- "2020-01-20"
+holiday <- "01-20"
+
 
 # Initialize empty data frame.
 df <- data.frame(Student=character(), 
@@ -201,7 +204,13 @@ att_table %>% filter(In_Class == 0) -> no_show
 # Get students who missed the last two days (who aren't also no shows).
 cur_enr_df$Date %>% unique() -> dates
 dates[(length(dates) - 1):length(dates)] -> last_two_days
-cur_enr_df %>% filter(Date %in% last_two_days & Presence == "Absent" & !(Student %in% no_show$Student)) %>% group_by(Student) %>% count() %>% filter(n == 2) -> missed_last_two_days
+cur_enr_df %>% 
+  filter(Date %in% last_two_days & 
+           Presence == "Absent" & 
+           !(Student %in% no_show$Student)) %>% 
+  group_by(Student) %>% 
+  count() %>% 
+  filter(n == 2) -> missed_last_two_days
 
 # Show the table
 kable(att_table) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
