@@ -1,0 +1,72 @@
+---
+output:
+  pdf_document: 
+    keep_tex: yes
+  keep_md: yes
+params:
+  d: !r Sys.Date()
+  data: "dummy.pdf"
+  # set_title: "Class"
+---
+
+
+```{r setup, include=FALSE}
+source("global.R")
+library(kableExtra)
+```
+
+
+```{r data_prep, echo=FALSE}
+params$data %>% pre_process() -> prepped_data
+prepped_data %>% get_course_name() -> course_name
+course_name %>% str_extract("[A-Z]{2}[0-9]{3}") -> title
+
+prepped_data %>% build_df() -> df
+df %>% build_date_df() -> date_df
+df %>% build_student_df() -> student_df
+df %>% build_date_student_df() -> student_date_df
+date_df %>% build_date_plot() -> date_plot
+```
+
+
+---
+title: "Attendance Report: `r title`"
+---
+
+## `r course_name`
+
+## Attendance by Date
+
+
+```{r by_date, echo=FALSE, fig.height=3}
+date_plot
+kable(date_df)
+```
+
+\pagebreak
+
+## `r course_name`
+
+## Attendance by Student
+
+```{r by_student, echo=FALSE}
+kable(student_df)
+noshows <- get_noshows(student_df)$Student
+```
+
+No-show list:
+
+`r paste(noshows, collapse = ",  ")`
+
+\pagebreak
+
+## `r course_name`
+
+## Attendance by Student and Date
+
+```{r by_student_and_date, echo=FALSE}
+kable(student_date_df)
+```
+
+
+
